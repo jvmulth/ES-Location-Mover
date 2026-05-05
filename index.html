@@ -196,7 +196,17 @@ input[type=checkbox]:checked::after{content:'';position:absolute;top:2px;left:4p
     <div class="stats">
       <div class="sc"><div class="slb">Total Items</div><div class="sv" id="stTotal">—</div></div>
       <div class="sc"><div class="slb">This Page</div><div class="sv" id="stPage">—</div></div>
-      <div class="sc"><div class="slb">Selected</div><div class="sv g" id="stSel">0</div></div>
+      <div class="sc"><div class="slb">Selected This Page</div><div class="sv g" id="stSel">0</div></div>
+      <div class="sc" style="cursor:pointer" onclick="toggleCart()"><div class="slb">Cart (to move)</div><div class="sv g" id="stCart">0 <span style="font-size:11px;opacity:.6">▼</span></div></div>
+    </div>
+
+    <!-- Cart panel -->
+    <div id="cartPanel" style="display:none;margin-bottom:14px;border:1px solid rgba(74,222,128,.2);background:var(--gdim)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid rgba(74,222,128,.1)">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--green);text-transform:uppercase">▶ Cart — Items to Move</span>
+        <button class="btn bs" style="padding:4px 10px;font-size:10px" onclick="clearCart()">Clear Cart</button>
+      </div>
+      <div id="cartList" style="max-height:180px;overflow-y:auto;padding:8px 0"></div>
     </div>
 
     <div class="mbar" id="mbar">
@@ -207,7 +217,7 @@ input[type=checkbox]:checked::after{content:'';position:absolute;top:2px;left:4p
             <label>Destination Location</label>
             <select id="locSel"><option value="">Loading...</option></select>
           </div>
-          <button class="btn bp" onclick="doMove()">Move Items</button>
+          <button class="btn bp" onclick="doMove()">Move Cart Items</button>
         </div>
       </div>
     </div>
@@ -257,6 +267,7 @@ input[type=checkbox]:checked::after{content:'';position:absolute;top:2px;left:4p
 <script>
 const BASE='https://dashboard.elevatedsignals.com/api/v1';
 let jwt=null,locations=[],allItems=[],pageSize=15,curPage=1,totalItems=0,curSearch='';
+let cart=new Map(); // inventoryId -> item (persists across searches)
 
 // ── UI helpers ──
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
@@ -368,7 +379,7 @@ async function doLoginToken(){
 }
 
 function logout(){
-  jwt=null;allItems=[];window._useCookie=false;
+  jwt=null;allItems=[];cart.clear();window._useCookie=false;
   setSession(false,'NOT CONNECTED');
   document.getElementById('loginEmail').value='';
   document.getElementById('loginPw').value='';
@@ -493,10 +504,22 @@ function renderTable(){
     tr.innerHTML=`<td><input type="checkbox" id="c${idx}" onchange="onChk(${idx},this.checked)"></td><td class="tmat">${esc(item.lotName)}</td><td class="tid">#${item.inventoryId}</td><td class="tm">${esc(item.itemName)}</td><td class="tid">${esc(item.amount)}</td><td>${loc}</td>`;
     tbody.appendChild(tr);
   });
+  // Re-check items that are in cart
+  pageItems().forEach((item,idx)=>{
+    if(cart.has(item.inventoryId)){
+      const c=document.getElementById('c'+idx);
+      if(c){c.checked=true;document.getElementById('r'+idx).classList.add('sel');}
+    }
+  });
+  // Update select-all checkbox state
+  const allChecked=pageItems().length>0&&pageItems().every((_,idx)=>document.getElementById('c'+idx)?.checked);
+  document.getElementById('saChk').checked=allChecked;
+
   const start=(curPage-1)*pageSize+1;
   const end=Math.min(curPage*pageSize,total);
   document.getElementById('pinfo').textContent=`${start}–${end} of ${total}`;
   renderPbtns(totalPages);
+  updSel();
 }
 
 function renderPbtns(tp){
@@ -515,14 +538,84 @@ function goPage(p){if(curSearch){curPage=p;renderTable()}else{loadInv(p)}}
 function onPsz(){pageSize=parseInt(document.getElementById('psz').value);loadInv(1)}
 
 // ── Selection ──
-function onChk(idx,checked){document.getElementById(`r${idx}`).classList.toggle('sel',checked);updSel()}
-function toggleAll(checked){pageItems().forEach((_,idx)=>{const c=document.getElementById(`c${idx}`);if(c){c.checked=checked;document.getElementById(`r${idx}`).classList.toggle('sel',checked)}});updSel()}
+function onChk(idx,checked){
+  document.getElementById('r'+idx).classList.toggle('sel',checked);
+  const item=pageItems()[idx];
+  if(item){
+    if(checked)cart.set(item.inventoryId,item);
+    else cart.delete(item.inventoryId);
+  }
+  updSel();
+}
+function toggleAll(checked){
+  pageItems().forEach((item,idx)=>{
+    const c=document.getElementById('c'+idx);
+    if(c){
+      c.checked=checked;
+      document.getElementById('r'+idx).classList.toggle('sel',checked);
+      if(checked)cart.set(item.inventoryId,item);
+      else cart.delete(item.inventoryId);
+    }
+  });
+  updSel();
+}
 function updSel(){
   const n=document.querySelectorAll('#tbody input[type=checkbox]:checked').length;
   document.getElementById('stSel').textContent=n;
-  document.getElementById('mbar').classList.toggle('show',n>0);
+  // Show move bar if there's anything in cart
+  document.getElementById('mbar').classList.toggle('show',cart.size>0);
+  updateCartUI();
 }
-function getSel(){return pageItems().filter((_,idx)=>document.getElementById(`c${idx}`)?.checked)}
+
+function updateCartUI(){
+  const cartEl=document.getElementById('stCart');
+  cartEl.innerHTML=cart.size+' <span style="font-size:11px;opacity:.6">▼</span>';
+  // Update cart list
+  const listEl=document.getElementById('cartList');
+  if(cart.size===0){
+    listEl.innerHTML='<div style="padding:12px 14px;font-family:IBM Plex Mono,monospace;font-size:11px;color:var(--text3)">No items in cart.</div>';
+    document.getElementById('mbar').classList.remove('show');
+  } else {
+    listEl.innerHTML=[...cart.values()].map(item=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 14px;border-bottom:1px solid rgba(74,222,128,.06)">
+        <span style="font-family:IBM Plex Mono,monospace;font-size:11px;color:var(--green);font-weight:600;min-width:160px">${esc(item.lotName)}</span>
+        <span style="font-family:IBM Plex Mono,monospace;font-size:10px;color:var(--text3)">#${item.inventoryId}</span>
+        <span style="font-size:12px;color:var(--text2);flex:1">${esc(item.itemName)}</span>
+        <span style="font-family:IBM Plex Mono,monospace;font-size:10px;color:var(--text3)">${esc(item.locationName||'unassigned')}</span>
+        <button onclick="removeFromCart(${item.inventoryId})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 4px;line-height:1" title="Remove">×</button>
+      </div>`).join('');
+    document.getElementById('mbar').classList.add('show');
+  }
+}
+
+function toggleCart(){
+  const p=document.getElementById('cartPanel');
+  const showing=p.style.display!=='none';
+  p.style.display=showing?'none':'block';
+  updateCartUI();
+}
+
+function clearCart(){
+  cart.clear();
+  // Uncheck all visible checkboxes
+  document.querySelectorAll('#tbody input[type=checkbox]').forEach(c=>c.checked=false);
+  document.querySelectorAll('#tbody tr').forEach(r=>r.classList.remove('sel'));
+  updSel();
+}
+
+function removeFromCart(id){
+  cart.delete(id);
+  // Uncheck if visible
+  const pi=pageItems();
+  pi.forEach((item,idx)=>{
+    if(item.inventoryId===id){
+      const c=document.getElementById('c'+idx);
+      if(c){c.checked=false;document.getElementById('r'+idx).classList.remove('sel');}
+    }
+  });
+  updSel();
+}
+function getSel(){return [...cart.values()]}
 
 // ── Move ──
 async function doMove(){
@@ -545,6 +638,8 @@ async function doMove(){
 
 function showResults(results){
   const ok=results.filter(r=>r.ok).length,fail=results.length-ok;
+  // Remove successfully moved items from cart
+  results.filter(r=>r.ok).forEach(r=>cart.delete(r.item.inventoryId));
   document.getElementById('rsum').innerHTML=`<div class="rsi ok"><span>${ok}</span> moved successfully</div>`+(fail?`<div class="rsi fail"><span>${fail}</span> failed</div>`:'');
   document.getElementById('rlist').innerHTML=results.map(r=>`<div class="rrow ${r.ok?'ok':'fail'}"><span>${r.ok?'✓':'✗'}</span><span class="rmat">${esc(r.item.lotName)}</span><span class="rdet">ID: ${r.item.inventoryId} · ${esc(r.item.itemName)}${r.ok?` → <strong>${esc(r.lname)}</strong>`:''}</span>${!r.ok?`<span class="rerr">${esc(r.error)}</span>`:''}</div>`).join('');
   showScreen('sResults');
