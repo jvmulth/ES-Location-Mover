@@ -195,7 +195,6 @@ input[type=checkbox]:checked::after{content:'';position:absolute;top:2px;left:4p
 
     <div class="stats">
       <div class="sc"><div class="slb">Total Items</div><div class="sv" id="stTotal">—</div></div>
-      <div class="sc"><div class="slb">This Page</div><div class="sv" id="stPage">—</div></div>
       <div class="sc"><div class="slb">Selected This Page</div><div class="sv g" id="stSel">0</div></div>
       <div class="sc" style="cursor:pointer" onclick="toggleCart()"><div class="slb">Cart (to move)</div><div class="sv g" id="stCart">0 <span style="font-size:11px;opacity:.6">▼</span></div></div>
     </div>
@@ -484,7 +483,7 @@ function renderTable(){
   const total=curSearch?allItems.length:totalItems;
   const totalPages=Math.max(1,Math.ceil(total/pageSize));
   document.getElementById('stTotal').textContent=total||0;
-  document.getElementById('stPage').textContent=pi.length;
+  
   document.getElementById('stSel').textContent='0';
   if(!total&&!allItems.length){
     document.getElementById('emptyState').style.display='block';
