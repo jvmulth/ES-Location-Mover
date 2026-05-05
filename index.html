@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ES · Location Mover</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+:root{
+  --bg:#0d0f0e;--bg2:#141714;--bg3:#1c201c;
+  --border:#2a2e2a;--border2:#3a3e3a;
+  --text:#e8ece8;--text2:#8a9088;--text3:#5a5e5a;
+  --green:#4ade80;--green2:#22c55e;
+  --gdim:rgba(74,222,128,0.07);--gdim2:rgba(74,222,128,0.13);
+  --red:#f87171;--rdim:rgba(248,113,113,0.08);
+  --yellow:#fbbf24;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;min-height:100vh}
+.header{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:10}
+.logo{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.15em;color:var(--green);border:1px solid var(--green);padding:3px 9px}
+.htitle{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);margin-left:14px}
+.sbadge{display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--text3)}
+.dot.on{background:var(--green);box-shadow:0 0 7px var(--green)}
+.main{max-width:1200px;margin:0 auto;padding:28px}
+.screen{display:none}.screen.active{display:block}
+.login-wrap{max-width:440px;margin:70px auto}
+.slabel{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--text3);text-transform:uppercase;margin-bottom:6px}
+.stitle{font-size:22px;font-weight:500;margin-bottom:5px}
+.ssub{font-size:13px;color:var(--text2);margin-bottom:28px}
+.fg{margin-bottom:18px}
+.fg label{display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--text2);text-transform:uppercase;margin-bottom:7px}
+.fg input,.fg select{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 13px;font-family:'IBM Plex Sans',sans-serif;font-size:14px;outline:none;transition:border-color .15s;border-radius:0;appearance:none}
+.fg input:focus,.fg select:focus{border-color:var(--green)}
+.fg input::placeholder{color:var(--text3)}
+.mono{font-family:'IBM Plex Mono',monospace!important;font-size:11px!important}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 18px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border:none;outline:none;transition:all .15s;border-radius:0;white-space:nowrap}
+.bp{background:var(--green);color:#0d0f0e}.bp:hover:not(:disabled){background:var(--green2)}.bp:disabled{opacity:.4;cursor:not-allowed}
+.bs{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}.bs:hover{border-color:var(--border2);color:var(--text)}
+.bfull{width:100%}
+.err{background:var(--rdim);border:1px solid rgba(248,113,113,.2);color:var(--red);padding:9px 13px;font-size:13px;margin-top:14px;display:none}
+.err.show{display:block}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0}
+.divider-line{flex:1;height:1px;background:var(--border)}
+.divider-text{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase}
+.token-hint{background:var(--bg3);border:1px solid var(--border);padding:12px 14px;margin-bottom:6px}
+.token-hint-title{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin-bottom:8px}
+.token-hint ol{list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:6px}
+.token-hint ol li{counter-increment:s;display:flex;gap:10px;font-size:12px;color:var(--text2);line-height:1.5}
+.token-hint ol li::before{content:counter(s);font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--green);background:var(--gdim);border:1px solid rgba(74,222,128,.2);width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.token-hint code{font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--bg);padding:1px 4px;color:var(--yellow)}
+.token-hint strong{color:var(--text);font-weight:500}
+.toolbar{display:flex;gap:10px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap}
+.toolbar .fg{margin-bottom:0;flex:1;min-width:220px}
+.tright{display:flex;gap:8px;align-items:flex-end}
+.stats{display:flex;gap:1px;margin-bottom:20px;background:var(--border)}
+.sc{flex:1;background:var(--bg2);padding:14px 18px}
+.slb{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.13em;color:var(--text3);text-transform:uppercase;margin-bottom:3px}
+.sv{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600}
+.sv.g{color:var(--green)}
+.mbar{display:none;gap:12px;align-items:flex-end;padding:14px 16px;background:var(--gdim);border:1px solid rgba(74,222,128,.13);margin-bottom:14px;flex-wrap:wrap}
+.mbar.show{display:flex}
+.mlab{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.13em;color:var(--green);text-transform:uppercase;margin-bottom:6px}
+.mbar .fg{margin-bottom:0;flex:1;min-width:200px}
+.twrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{border-bottom:1px solid var(--border)}
+thead th{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.13em;color:var(--text3);text-transform:uppercase;padding:8px 11px;text-align:left;white-space:nowrap}
+thead th:first-child{width:34px;padding-left:14px}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:hover{background:var(--bg2)}
+tbody tr.sel{background:var(--gdim)}
+tbody tr.sel:hover{background:var(--gdim2)}
+tbody td{padding:11px 11px;vertical-align:middle;color:var(--text2)}
+tbody td:first-child{padding-left:14px}
+.tm{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text)}
+.tmat{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--green)}
+.tid{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3)}
+.ltag{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:2px 7px;background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.ltag.none{color:var(--text3);border-style:dashed}
+input[type=checkbox]{appearance:none;width:15px;height:15px;border:1px solid var(--border2);background:var(--bg3);cursor:pointer;position:relative;flex-shrink:0;border-radius:0}
+input[type=checkbox]:checked{background:var(--green);border-color:var(--green)}
+input[type=checkbox]:checked::after{content:'';position:absolute;top:2px;left:4px;width:4px;height:7px;border:2px solid #0d0f0e;border-top:none;border-left:none;transform:rotate(45deg)}
+.pag{display:flex;align-items:center;justify-content:space-between;padding:12px 0;margin-top:4px;flex-wrap:wrap;gap:10px}
+.pinfo{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3)}
+.pbtns{display:flex;gap:6px;align-items:center}
+.pbtn{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 11px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);cursor:pointer;transition:all .15s}
+.pbtn:hover:not(:disabled){border-color:var(--border2);color:var(--text)}
+.pbtn.act{background:var(--green);color:#0d0f0e;border-color:var(--green)}
+.pbtn:disabled{opacity:.3;cursor:not-allowed}
+.psz{display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3)}
+.psz select{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:11px;outline:none;border-radius:0;appearance:none}
+.empty{padding:56px 28px;text-align:center;color:var(--text3)}
+.eicon{font-family:'IBM Plex Mono',monospace;font-size:28px;margin-bottom:10px;opacity:.3}
+.lov{display:none;position:fixed;inset:0;background:rgba(13,15,14,.88);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.lov.show{display:flex}
+.spin{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ltext{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);letter-spacing:.1em}
+.rsum{display:flex;gap:20px;margin-bottom:10px}
+.rsi{font-family:'IBM Plex Mono',monospace;font-size:13px}
+.rsi span{font-weight:600}
+.rsi.ok span{color:var(--green)}.rsi.fail span{color:var(--red)}
+.rlist{display:flex;flex-direction:column;gap:7px;margin-top:20px}
+.rrow{display:flex;align-items:center;gap:14px;padding:11px 14px;border:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:12px}
+.rrow.ok{border-color:rgba(74,222,128,.2);background:var(--gdim)}
+.rrow.fail{border-color:rgba(248,113,113,.2);background:var(--rdim)}
+.rmat{font-weight:600}
+.rrow.ok .rmat{color:var(--green)}.rrow.fail .rmat{color:var(--red)}
+.rdet{color:var(--text2);flex:1}
+.rerr{color:var(--red);font-size:11px}
+.brow{display:flex;gap:10px;margin-top:28px}
+@media(max-width:680px){.main{padding:14px}.header{padding:10px 14px}.toolbar{flex-direction:column}table{font-size:12px}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center">
+    <div class="logo">ES</div>
+    <div class="htitle">Inventory · Location Mover</div>
+  </div>
+  <div class="sbadge">
+    <div class="dot" id="dot"></div>
+    <span id="slabel">NOT CONNECTED</span>
+  </div>
+</div>
+
+<div class="lov" id="lov">
+  <div class="spin"></div>
+  <div class="ltext" id="ltext">LOADING...</div>
+</div>
+
+<div class="main">
+
+  <!-- LOGIN -->
+  <div class="screen active" id="sLogin">
+    <div class="login-wrap">
+      <div class="slabel">Authentication</div>
+      <div class="stitle">Sign in to Elevated Signals</div>
+      <div class="ssub" id="loginSub">Enter your credentials below.</div>
+
+      <!-- Email/password form (works when hosted on a server) -->
+      <div id="emailForm">
+        <div class="fg">
+          <label>Email</label>
+          <input type="email" id="loginEmail" placeholder="you@company.com" autocomplete="email">
+        </div>
+        <div class="fg">
+          <label>Password</label>
+          <input type="password" id="loginPw" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="btn bp bfull" id="loginBtn" onclick="doLoginEmail()">Sign In</button>
+      </div>
+
+      <!-- Divider -->
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">or use token</div>
+        <div class="divider-line"></div>
+      </div>
+
+      <!-- Token fallback (always works) -->
+      <div class="token-hint">
+        <div class="token-hint-title">How to get your token</div>
+        <ol>
+          <li>Open <strong>dashboard.elevatedsignals.com</strong> and log in.</li>
+          <li>Press <strong>F12</strong> → Network → filter <code>api/v1</code></li>
+          <li>Click any request → <strong>Headers</strong> → copy <strong>Authorization</strong> value</li>
+        </ol>
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label>JWT Token</label>
+        <input class="mono" type="text" id="loginToken" placeholder="JWT eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+      </div>
+      <button class="btn bs bfull" style="margin-top:10px" onclick="doLoginToken()">Connect with Token</button>
+
+      <div class="err" id="loginErr"></div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="screen" id="sMain">
+    <div class="toolbar">
+      <div class="fg">
+        <label>Search by MAT / Lot name (leave empty to browse all)</label>
+        <input type="text" id="searchInput" placeholder="e.g. MAT-028, CS-LBL, PRCSSNG..." onkeydown="if(event.key==='Enter')loadInv()">
+      </div>
+      <div class="tright">
+        <button class="btn bp" onclick="loadInv()">Search</button>
+        <button class="btn bs" onclick="logout()">Sign Out</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="sc"><div class="slb">Total Items</div><div class="sv" id="stTotal">—</div></div>
+      <div class="sc"><div class="slb">This Page</div><div class="sv" id="stPage">—</div></div>
+      <div class="sc"><div class="slb">Selected</div><div class="sv g" id="stSel">0</div></div>
+    </div>
+
+    <div class="mbar" id="mbar">
+      <div style="flex:1">
+        <div class="mlab">▶ Move selected items to:</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div class="fg" style="flex:1;min-width:200px;margin-bottom:0">
+            <label>Destination Location</label>
+            <select id="locSel"><option value="">Loading...</option></select>
+          </div>
+          <button class="btn bp" onclick="doMove()">Move Items</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="emptyState" class="empty">
+      <div class="eicon">[ ]</div>
+      <p>Leave the search blank and press Search to browse all items, or type a MAT/Lot name to filter.</p>
+    </div>
+
+    <div id="tContainer" style="display:none">
+      <div class="twrap">
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="saChk" onchange="toggleAll(this.checked)" title="Select all on page"></th>
+              <th>Lot Name</th>
+              <th>Inventory ID</th>
+              <th>Item Name</th>
+              <th>Amount</th>
+              <th>Current Location</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="pag">
+        <div class="psz">SHOW <select id="psz" onchange="onPsz()"><option value="10">10</option><option value="15" selected>15</option><option value="25">25</option><option value="50">50</option></select> PER PAGE</div>
+        <div class="pinfo" id="pinfo"></div>
+        <div class="pbtns" id="pbtns"></div>
+      </div>
+    </div>
+    <div class="err" id="mainErr"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="screen" id="sResults">
+    <div class="slabel">Complete</div>
+    <div class="stitle">Move Results</div>
+    <div class="ssub">Summary of the location update operation.</div>
+    <div class="rsum" id="rsum"></div>
+    <div class="rlist" id="rlist"></div>
+    <div class="brow"><button class="btn bp" onclick="goBack()">← Back to Search</button></div>
+  </div>
+
+</div>
+
+<script>
+const BASE='https://dashboard.elevatedsignals.com/api/v1';
+let jwt=null,locations=[],allItems=[],pageSize=15,curPage=1,totalItems=0,curSearch='';
+
+// ── UI helpers ──
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function load(show,txt='LOADING...'){document.getElementById('ltext').textContent=txt;document.getElementById('lov').classList.toggle('show',show)}
+function showErr(id,msg){const e=document.getElementById(id);e.textContent=msg;e.classList.add('show')}
+function hideErr(id){const e=document.getElementById(id);e.textContent='';e.classList.remove('show')}
+function setSession(on,lbl){document.getElementById('dot').className='dot'+(on?' on':'');document.getElementById('slabel').textContent=lbl}
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
+function ah(){return{'Content-Type':'application/json','Authorization':jwt}}
+async function af(path,opts={}){return fetch(BASE+path,{...opts,headers:{...ah(),...(opts.headers||{})}})}
+
+// ── Check if running on a real domain (not file://) ──
+const isHosted = window.location.protocol !== 'file:';
+
+// Show/hide hint based on context
+window.addEventListener('DOMContentLoaded', () => {
+  if (isHosted) {
+    document.getElementById('loginSub').textContent = 'Enter your Elevated Signals credentials.';
+  } else {
+    // Running locally - email/password won't work due to CORS
+    // Show a note but keep the form visible as a reminder
+    document.getElementById('loginSub').innerHTML =
+      '<span style="color:var(--yellow)">⚠ Running locally — email/password requires hosting.</span><br>Use the token method below, or host this file online.';
+  }
+});
+
+// ── Login: Email/Password (works when hosted) ──
+async function doLoginEmail(){
+  hideErr('loginErr');
+  const email=document.getElementById('loginEmail').value.trim();
+  const pw=document.getElementById('loginPw').value;
+  if(!email||!pw){showErr('loginErr','Please enter your email and password.');return}
+
+  if(!isHosted){
+    showErr('loginErr','Email/password login requires this file to be hosted online (not opened from your computer). Use the JWT token method below instead.');
+    return;
+  }
+
+  load(true,'SIGNING IN...');
+  document.getElementById('loginBtn').disabled=true;
+
+  try{
+    const res=await fetch(BASE+'/oauth2/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email,password:pw}),
+      credentials:'include',
+      redirect:'follow'
+    });
+
+    // After login, credentials are set as cookies - fetch profile to get user info
+    // and capture JWT from the response or subsequent calls
+    if(res.ok||res.status===302||res.redirected){
+      // Install fetch interceptor to capture the JWT on next authenticated call
+      const origFetch=window.fetch;
+      let captured=null;
+      window.fetch=function(...a){
+        try{const h=a[1]?.headers||{};const t=h.Authorization||h.authorization;if(t?.startsWith('JWT')){captured=t;window.fetch=origFetch;}}catch(e){}
+        return origFetch.apply(this,a);
+      };
+
+      // Trigger an API call - the app will send the JWT in headers
+      const profileRes=await fetch(BASE+'/user/profile',{credentials:'include',headers:{'Content-Type':'application/json'}});
+      if(profileRes.ok){
+        jwt=captured||'cookie';
+        const p=await profileRes.json();
+        setSession(true,(p.first_name||p.email||'USER').toUpperCase());
+        if(jwt==='cookie'){
+          // Use cookie-based auth going forward
+          window._useCookie=true;
+        }
+        await loadLocs();
+        showScreen('sMain');
+      } else {
+        showErr('loginErr','Login failed. Please check your credentials.');
+      }
+    } else {
+      showErr('loginErr',`Login failed (${res.status}). Please check your credentials.`);
+    }
+  }catch(e){
+    showErr('loginErr','Connection error: '+e.message);
+  }finally{
+    load(false);
+    document.getElementById('loginBtn').disabled=false;
+  }
+}
+
+// ── Login: JWT Token (always works) ──
+async function doLoginToken(){
+  hideErr('loginErr');
+  let t=document.getElementById('loginToken').value.trim();
+  if(!t){showErr('loginErr','Please paste your JWT token.');return}
+  if(!t.startsWith('JWT '))t='JWT '+t;
+  jwt=t;
+  load(true,'VERIFYING TOKEN...');
+  try{
+    const r=await af('/user/profile');
+    if(r.ok){
+      const p=await r.json();
+      setSession(true,(p.first_name||p.email||'USER').toUpperCase());
+      await loadLocs();
+      showScreen('sMain');
+    }else{
+      jwt=null;
+      showErr('loginErr',r.status===401?'Token expired or invalid. Please copy a fresh token.':`Verification failed (${r.status}).`);
+    }
+  }catch(e){jwt=null;showErr('loginErr','Connection error: '+e.message)}
+  finally{load(false)}
+}
+
+function logout(){
+  jwt=null;allItems=[];window._useCookie=false;
+  setSession(false,'NOT CONNECTED');
+  document.getElementById('loginEmail').value='';
+  document.getElementById('loginPw').value='';
+  document.getElementById('loginToken').value='';
+  document.getElementById('searchInput').value='';
+  document.getElementById('emptyState').style.display='block';
+  document.getElementById('tContainer').style.display='none';
+  showScreen('sLogin');
+}
+
+// ── Auth fetch (supports both JWT and cookie) ──
+function ah(){
+  if(window._useCookie)return{'Content-Type':'application/json'};
+  return{'Content-Type':'application/json','Authorization':jwt};
+}
+async function af(path,opts={}){
+  const fetchOpts={...opts,headers:{...ah(),...(opts.headers||{})}};
+  if(window._useCookie)fetchOpts.credentials='include';
+  return fetch(BASE+path,fetchOpts);
+}
+
+// ── Locations ──
+async function loadLocs(){
+  try{
+    const r=await af('/locations?page_size=200');
+    if(r.ok){
+      const d=await r.json();
+      locations=(d.results||d||[]).filter(l=>!l.archived).sort((a,b)=>a.name.localeCompare(b.name));
+      const sel=document.getElementById('locSel');
+      sel.innerHTML='<option value="">— Select destination —</option>'+locations.map(l=>`<option value="${l.id}">${esc(l.name)}</option>`).join('');
+    }
+  }catch(e){console.error('Locations failed',e)}
+}
+
+// ── Load Inventory ──
+async function loadInv(page=1){
+  hideErr('mainErr');
+  curPage=page;
+  curSearch=document.getElementById('searchInput').value.trim();
+  pageSize=parseInt(document.getElementById('psz').value);
+  load(true,'LOADING INVENTORY...');
+  try{
+    allItems=[];
+    if(curSearch){
+      load(true,'SEARCHING LOTS...');
+      const lr=await af(`/lots?search=${encodeURIComponent(curSearch)}&page_size=100`);
+      if(!lr.ok){showErr('mainErr',`Lots error (${lr.status})`);load(false);return}
+      const ld=await lr.json();
+      const lots=ld.results||ld||[];
+      if(!lots.length){showErr('mainErr',`No lots found matching "${curSearch}"`);renderTable();load(false);return}
+      load(true,`LOADING ${lots.length} LOT(S)...`);
+      for(const lot of lots){
+        const ir=await af(`/inventories?lot_id=${lot.id}&page_size=200&eager=[location,inventory_product,measurements,inventory_unit]`);
+        if(ir.ok){const id=await ir.json();(id.results||id||[]).forEach(item=>allItems.push(mapItem(item,lot.name)))}
+      }
+      totalItems=allItems.length;
+    }else{
+      const ir=await af(`/inventories?page_size=${pageSize}&page=${page}&eager=[location,inventory_product,lot,measurements,inventory_unit]`);
+      if(!ir.ok){showErr('mainErr',`Inventory error (${ir.status})`);load(false);return}
+      const id=await ir.json();
+      totalItems=id.total||0;
+      (id.results||id||[]).forEach(item=>allItems.push(mapItem(item,item.lot?.name||null)));
+    }
+    renderTable();
+  }catch(e){showErr('mainErr','Error: '+e.message)}
+  finally{load(false)}
+}
+
+function mapItem(item,lotName){
+  // Amount: try direct fields first, then last measurement
+  let amount='—';
+  const unit=item.inventory_unit?.name||item.inventory_unit?.abbreviation||'';
+  if(item.current_amount!=null){
+    amount=`${item.current_amount}${unit?' '+unit:''}`;
+  }else if(item.total!=null){
+    amount=`${item.total}${unit?' '+unit:''}`;
+  }else if(item.measurements&&item.measurements.length>0){
+    const m=item.measurements[item.measurements.length-1];
+    const val=m.value??m.amount??m.quantity??m.qty??null;
+    const mu=m.unit?.name||m.unit?.abbreviation||unit;
+    if(val!=null)amount=`${val}${mu?' '+mu:''}`;
+  }
+  return{
+    inventoryId:item.id,
+    lotName:lotName||item.lot?.name||'—',
+    itemId:item.id,
+    itemName:item.inventory_product?.name||item.name||'—',
+    locationName:item.location?.name||null,
+    locationId:item.location_id||null,
+    amount,
+  }
+}
+
+// ── Render ──
+function pageItems(){
+  if(curSearch)return allItems.slice((curPage-1)*pageSize,curPage*pageSize);
+  return allItems;
+}
+
+function renderTable(){
+  const pi=pageItems();
+  const total=curSearch?allItems.length:totalItems;
+  const totalPages=Math.max(1,Math.ceil(total/pageSize));
+  document.getElementById('stTotal').textContent=total||0;
+  document.getElementById('stPage').textContent=pi.length;
+  document.getElementById('stSel').textContent='0';
+  if(!total&&!allItems.length){
+    document.getElementById('emptyState').style.display='block';
+    document.getElementById('tContainer').style.display='none';
+    return;
+  }
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('tContainer').style.display='block';
+  document.getElementById('saChk').checked=false;
+  document.getElementById('mbar').classList.remove('show');
+  const tbody=document.getElementById('tbody');
+  tbody.innerHTML='';
+  pi.forEach((item,idx)=>{
+    const tr=document.createElement('tr');
+    tr.id=`r${idx}`;
+    const loc=item.locationName?`<span class="ltag">${esc(item.locationName)}</span>`:`<span class="ltag none">— unassigned —</span>`;
+    tr.innerHTML=`<td><input type="checkbox" id="c${idx}" onchange="onChk(${idx},this.checked)"></td><td class="tmat">${esc(item.lotName)}</td><td class="tid">#${item.inventoryId}</td><td class="tm">${esc(item.itemName)}</td><td class="tid">${esc(item.amount)}</td><td>${loc}</td>`;
+    tbody.appendChild(tr);
+  });
+  const start=(curPage-1)*pageSize+1;
+  const end=Math.min(curPage*pageSize,total);
+  document.getElementById('pinfo').textContent=`${start}–${end} of ${total}`;
+  renderPbtns(totalPages);
+}
+
+function renderPbtns(tp){
+  const w=document.getElementById('pbtns');w.innerHTML='';
+  w.appendChild(mkPbtn('←',curPage===1,()=>goPage(curPage-1)));
+  const pages=[];
+  for(let i=Math.max(1,curPage-2);i<=Math.min(tp,curPage+2);i++)pages.push(i);
+  if(pages[0]>1){w.appendChild(mkPbtn(1,false,()=>goPage(1)));if(pages[0]>2)w.appendChild(mkEllipsis())}
+  pages.forEach(p=>{const b=mkPbtn(p,false,()=>goPage(p));if(p===curPage)b.classList.add('act');w.appendChild(b)});
+  if(pages[pages.length-1]<tp){if(pages[pages.length-1]<tp-1)w.appendChild(mkEllipsis());w.appendChild(mkPbtn(tp,false,()=>goPage(tp)))}
+  w.appendChild(mkPbtn('→',curPage===tp||tp===0,()=>goPage(curPage+1)));
+}
+function mkPbtn(lbl,dis,fn){const b=document.createElement('button');b.className='pbtn';b.textContent=lbl;b.disabled=dis;b.onclick=fn;return b}
+function mkEllipsis(){const s=document.createElement('span');s.textContent='...';s.style.cssText='font-family:IBM Plex Mono,monospace;font-size:11px;color:var(--text3);padding:0 4px';return s}
+function goPage(p){if(curSearch){curPage=p;renderTable()}else{loadInv(p)}}
+function onPsz(){pageSize=parseInt(document.getElementById('psz').value);loadInv(1)}
+
+// ── Selection ──
+function onChk(idx,checked){document.getElementById(`r${idx}`).classList.toggle('sel',checked);updSel()}
+function toggleAll(checked){pageItems().forEach((_,idx)=>{const c=document.getElementById(`c${idx}`);if(c){c.checked=checked;document.getElementById(`r${idx}`).classList.toggle('sel',checked)}});updSel()}
+function updSel(){
+  const n=document.querySelectorAll('#tbody input[type=checkbox]:checked').length;
+  document.getElementById('stSel').textContent=n;
+  document.getElementById('mbar').classList.toggle('show',n>0);
+}
+function getSel(){return pageItems().filter((_,idx)=>document.getElementById(`c${idx}`)?.checked)}
+
+// ── Move ──
+async function doMove(){
+  const sel=getSel();if(!sel.length)return;
+  const lid=parseInt(document.getElementById('locSel').value);
+  if(!lid){alert('Please select a destination location.');return}
+  const lname=locations.find(l=>l.id===lid)?.name||String(lid);
+  if(!confirm(`Move ${sel.length} item(s) to "${lname}"?\n\nThis will update their location in Elevated Signals.`))return;
+  load(true,`MOVING ${sel.length} ITEM(S)...`);
+  const results=[];
+  for(const item of sel){
+    try{
+      const r=await af(`/inventory/move/${item.inventoryId}`,{method:'PATCH',body:JSON.stringify({location_id:lid})});
+      if(r.ok){results.push({item,ok:true,lname})}
+      else{let msg=`Error ${r.status}`;try{const j=await r.json();msg=j.message||msg}catch(e){}results.push({item,ok:false,error:msg})}
+    }catch(e){results.push({item,ok:false,error:e.message})}
+  }
+  load(false);showResults(results);
+}
+
+function showResults(results){
+  const ok=results.filter(r=>r.ok).length,fail=results.length-ok;
+  document.getElementById('rsum').innerHTML=`<div class="rsi ok"><span>${ok}</span> moved successfully</div>`+(fail?`<div class="rsi fail"><span>${fail}</span> failed</div>`:'');
+  document.getElementById('rlist').innerHTML=results.map(r=>`<div class="rrow ${r.ok?'ok':'fail'}"><span>${r.ok?'✓':'✗'}</span><span class="rmat">${esc(r.item.lotName)}</span><span class="rdet">ID: ${r.item.inventoryId} · ${esc(r.item.itemName)}${r.ok?` → <strong>${esc(r.lname)}</strong>`:''}</span>${!r.ok?`<span class="rerr">${esc(r.error)}</span>`:''}</div>`).join('');
+  showScreen('sResults');
+}
+
+function goBack(){showScreen('sMain');loadInv(curPage)}
+
+// Enter keys
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('loginEmail')?.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('loginPw').focus()});
+  document.getElementById('loginPw')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLoginEmail()});
+  document.getElementById('loginToken')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLoginToken()});
+});
+</script>
+</body>
+</html>
