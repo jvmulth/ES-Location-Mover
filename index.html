@@ -293,15 +293,19 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ── Login: Email/Password (works when hosted) ──
+// ── monday Code proxy URL - update this after deploying ──
+// Format: https://your-monday-code-url/login
+const PROXY_URL = 'https://df5e8-service-8448569-ca7738c0.us.monday.app/login';
+
+// ── Login: Email/Password via monday Code proxy ──
 async function doLoginEmail(){
   hideErr('loginErr');
   const email=document.getElementById('loginEmail').value.trim();
   const pw=document.getElementById('loginPw').value;
   if(!email||!pw){showErr('loginErr','Please enter your email and password.');return}
 
-  if(!isHosted){
-    showErr('loginErr','Email/password login requires this file to be hosted online (not opened from your computer). Use the JWT token method below instead.');
+  if(!PROXY_URL){
+    showErr('loginErr','Proxy server not configured. Use the JWT token method below, or set up the monday Code backend.');
     return;
   }
 
@@ -309,42 +313,30 @@ async function doLoginEmail(){
   document.getElementById('loginBtn').disabled=true;
 
   try{
-    const res=await fetch(BASE+'/oauth2/login',{
+    // Call our monday Code proxy - no CORS issues since it's server-side
+    const res=await fetch(PROXY_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({email,password:pw}),
-      credentials:'include',
-      redirect:'follow'
     });
 
-    // After login, credentials are set as cookies - fetch profile to get user info
-    // and capture JWT from the response or subsequent calls
-    if(res.ok||res.status===302||res.redirected){
-      // Install fetch interceptor to capture the JWT on next authenticated call
-      const origFetch=window.fetch;
-      let captured=null;
-      window.fetch=function(...a){
-        try{const h=a[1]?.headers||{};const t=h.Authorization||h.authorization;if(t?.startsWith('JWT')){captured=t;window.fetch=origFetch;}}catch(e){}
-        return origFetch.apply(this,a);
-      };
+    const data=await res.json();
 
-      // Trigger an API call - the app will send the JWT in headers
-      const profileRes=await fetch(BASE+'/user/profile',{credentials:'include',headers:{'Content-Type':'application/json'}});
+    if(res.ok && data.token){
+      jwt=data.token.startsWith('JWT ')?data.token:'JWT '+data.token;
+      // Verify the token works
+      const profileRes=await af('/user/profile');
       if(profileRes.ok){
-        jwt=captured||'cookie';
         const p=await profileRes.json();
         setSession(true,(p.first_name||p.email||'USER').toUpperCase());
-        if(jwt==='cookie'){
-          // Use cookie-based auth going forward
-          window._useCookie=true;
-        }
         await loadLocs();
         showScreen('sMain');
       } else {
-        showErr('loginErr','Login failed. Please check your credentials.');
+        jwt=null;
+        showErr('loginErr','Token verification failed. Please try again.');
       }
     } else {
-      showErr('loginErr',`Login failed (${res.status}). Please check your credentials.`);
+      showErr('loginErr',data.error||'Invalid email or password.');
     }
   }catch(e){
     showErr('loginErr','Connection error: '+e.message);
